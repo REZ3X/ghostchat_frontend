@@ -27,6 +27,7 @@ export default function RoomPage() {
   const [cryptoInitialized, setCryptoInitialized] = useState(false);
   const [connectionError, setConnectionError] = useState(null);
   const [messagesLoaded, setMessagesLoaded] = useState(false);
+  const [historyError, setHistoryError] = useState(null);
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
@@ -58,61 +59,85 @@ export default function RoomPage() {
   }, [params.token]);
 
   useEffect(() => {
-    if (!cryptoInitialized || !roomKey || messagesLoaded) return;
+    if (!cryptoInitialized || messagesLoaded) return;
 
     const loadMessageHistory = async () => {
       try {
         console.log('📜 Loading message history for room:', params.token);
+        setHistoryError(null);
+        
         const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";
-        const response = await fetch(`${backendUrl}/api/room/${params.token}/messages`);
+        console.log('🔗 Fetching from:', `${backendUrl}/api/room/${params.token}/messages`);
+        
+        const response = await fetch(`${backendUrl}/api/room/${params.token}/messages`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          cache: 'no-cache'
+        });
+        
+        console.log('📜 History response status:', response.status);
         
         if (response.ok) {
           const data = await response.json();
-          const decryptedMessages = [];
+          console.log('📜 Raw history data:', data);
           
-          for (const messageData of data.messages) {
-            try {
-              let messageContent = messageData.message;
-              
-              if (encryptionEnabled && roomKey) {
-                try {
-                  messageContent = await decryptMessage(messageData.message, roomKey);
-                } catch (decryptError) {
-                  console.warn('⚠️ Failed to decrypt historical message:', decryptError);
-                  messageContent = messageData.message;
+          if (data.messages && Array.isArray(data.messages)) {
+            const decryptedMessages = [];
+            
+            for (const messageData of data.messages) {
+              try {
+                let messageContent = messageData.message;
+                
+                if (encryptionEnabled && roomKey) {
+                  try {
+                    messageContent = await decryptMessage(messageData.message, roomKey);
+                    console.log('✅ Historical message decrypted');
+                  } catch (decryptError) {
+                    console.warn('⚠️ Failed to decrypt historical message:', decryptError);
+                    messageContent = messageData.message;
+                  }
                 }
+                
+                const message = {
+                  id: messageData.id,
+                  content: messageContent,
+                  sender: messageData.sender,
+                  timestamp: messageData.timestamp,
+                  ttl: messageData.ttl,
+                  isOwn: messageData.sender === agentId
+                };
+                
+                decryptedMessages.push(message);
+              } catch (error) {
+                console.warn('Failed to process historical message:', error);
               }
-              
-              const message = {
-                id: messageData.id,
-                content: messageContent,
-                sender: messageData.sender,
-                timestamp: messageData.timestamp,
-                ttl: messageData.ttl,
-                isOwn: messageData.sender === agentId
-              };
-              
-              decryptedMessages.push(message);
-            } catch (error) {
-              console.warn('Failed to process historical message:', error);
             }
+            
+            console.log(`📜 Processed ${decryptedMessages.length} historical messages`);
+            setMessages(decryptedMessages);
+          } else {
+            console.log('📜 No messages in history response');
+            setMessages([]);
           }
-          
-          setMessages(decryptedMessages);
-          setMessagesLoaded(true);
-          console.log(`📜 Loaded ${decryptedMessages.length} historical messages`);
         } else {
-          console.warn('Failed to load message history:', response.status);
-          setMessagesLoaded(true);
+          const errorText = await response.text();
+          console.warn('📜 Failed to load message history:', response.status, errorText);
+          setHistoryError(`HTTP ${response.status}: ${errorText}`);
+          setMessages([]);
         }
       } catch (error) {
-        console.error('Error loading message history:', error);
+        console.error('📜 Error loading message history:', error);
+        setHistoryError(error.message);
+        setMessages([]);
+      } finally {
         setMessagesLoaded(true);
       }
     };
 
     loadMessageHistory();
-  }, [cryptoInitialized, roomKey, encryptionEnabled, params.token, agentId, messagesLoaded]);
+  }, [cryptoInitialized, encryptionEnabled, roomKey, params.token, agentId, messagesLoaded]);
 
   const handleNewMessage = useCallback(async (messageData) => {
     console.log('🔄 Processing new message:', messageData);
@@ -182,7 +207,7 @@ export default function RoomPage() {
       console.log('🔗 Socket connected successfully:', socketInstance.id);
       setIsConnected(true);
       setConnectionError(null);
-
+      
       console.log('🏠 Joining room:', params.token, 'as:', agentId);
       socketInstance.emit("join-room", { 
         roomToken: params.token, 
@@ -252,7 +277,7 @@ export default function RoomPage() {
 
     try {
       let messageContent = content;
-
+      
       if (encryptionEnabled && roomKey) {
         try {
           messageContent = await encryptMessage(content, roomKey);
@@ -304,6 +329,14 @@ export default function RoomPage() {
         </div>
       )}
 
+      {historyError && (
+        <div className="flex-shrink-0 bg-yellow-500/20 border border-yellow-500 text-yellow-200 p-3 m-4 rounded-lg">
+          <div className="font-medium">History Loading Error:</div>
+          <div className="text-sm">{historyError}</div>
+          <div className="text-xs mt-1">Previous messages could not be loaded</div>
+        </div>
+      )}
+
       <div className="flex-1 min-h-0 flex flex-col">
         <div className="flex-1 overflow-hidden">
           <MessageList 
@@ -321,20 +354,20 @@ export default function RoomPage() {
           />
         </div>
 
-        {/* {process.env.NODE_ENV === 'development' && (
-        <div className="fixed bottom-4 right-4 bg-black/80 text-white p-2 rounded text-xs max-w-xs">
-          <div>Messages: {messages.length}</div>
-          <div>Connected: {isConnected ? '✅' : '❌'}</div>
-          <div>Encryption: {encryptionEnabled ? '✅' : '❌'}</div>
-          <div>Agent: {agentId}</div>
-          <div>Socket ID: {socket?.id || 'None'}</div>
-          <div>Room: {params.token}</div>
-          <div>Participants: {participants.length}</div>
-          <div>Crypto Ready: {cryptoInitialized ? '✅' : '❌'}</div>
-          <div>History Loaded: {messagesLoaded ? '✅' : '❌'}</div>
-          {connectionError && <div className="text-red-400">Error: {connectionError}</div>}
-        </div>
-      )} */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="fixed bottom-4 right-4 bg-black/80 text-white p-2 rounded text-xs max-w-xs">
+            <div>Messages: {messages.length}</div>
+            <div>Connected: {isConnected ? '✅' : '❌'}</div>
+            <div>Encryption: {encryptionEnabled ? '✅' : '❌'}</div>
+            <div>Agent: {agentId}</div>
+            <div>Socket ID: {socket?.id || 'None'}</div>
+            <div>Room: {params.token}</div>
+            <div>Participants: {participants.length}</div>
+            <div>Crypto Ready: {cryptoInitialized ? '✅' : '❌'}</div>
+            <div>History Loaded: {messagesLoaded ? '✅' : '❌'}</div>
+            {historyError && <div className="text-red-400">History Error: {historyError}</div>}
+          </div>
+        )}
       </div>
     </div>
   );
