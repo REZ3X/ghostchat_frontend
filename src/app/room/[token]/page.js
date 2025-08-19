@@ -30,6 +30,71 @@ export default function RoomPage() {
   const [historyError, setHistoryError] = useState(null);
   const [debugInfo, setDebugInfo] = useState({});
   const messagesEndRef = useRef(null);
+  const messagesContainerRef = useRef(null);
+  const [isUserScrolling, setIsUserScrolling] = useState(false);
+  const scrollTimeoutRef = useRef(null);
+
+  const createUserFriendlyError = (error, type = 'connection') => {
+    if (type === 'connection') {
+      if (error.includes('ECONNREFUSED') || error.includes('Network Error') || error.includes('fetch')) {
+        return "Unable to connect to the server. Please check your internet connection and try again.";
+      }
+      if (error.includes('timeout') || error.includes('Timeout')) {
+        return "Connection timeout. The server is taking too long to respond.";
+      }
+      if (error.includes('CORS')) {
+        return "Connection blocked by security settings. Please contact support.";
+      }
+      return "Connection failed. Please check your internet connection and try again.";
+    }
+    
+    if (type === 'history') {
+      if (error.includes('404')) {
+        return "Chat room not found or server is currently unavailable.";
+      }
+      if (error.includes('500') || error.includes('502') || error.includes('503')) {
+        return "Server is currently experiencing issues. Your messages will still work, but previous chat history may not load.";
+      }
+      if (error.includes('timeout') || error.includes('Timeout')) {
+        return "Server is taking too long to respond. Previous messages may not load, but new messages will work normally.";
+      }
+      if (error.includes('Network Error') || error.includes('fetch')) {
+        return "Unable to load previous messages due to connection issues. New messages will still work.";
+      }
+      return "Previous messages couldn't be loaded, but you can continue chatting normally.";
+    }
+    
+    return error;
+  };
+
+  const scrollToBottom = useCallback((force = false) => {
+    if (!messagesEndRef.current) return;
+
+    if (force || !isUserScrolling) {
+      messagesEndRef.current.scrollIntoView({ 
+        behavior: "smooth",
+        block: "end",
+        inline: "nearest"
+      });
+    }
+  }, [isUserScrolling]);
+
+  const handleScroll = useCallback(() => {
+    if (!messagesContainerRef.current) return;
+    
+    const container = messagesContainerRef.current;
+    const isAtBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 50; 
+    
+    setIsUserScrolling(!isAtBottom);
+
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current);
+    }
+
+    scrollTimeoutRef.current = setTimeout(() => {
+      setIsUserScrolling(false);
+    }, 3000);
+  }, []);
 
   useEffect(() => {
     const id = generateAgentId();
@@ -86,7 +151,11 @@ export default function RoomPage() {
         console.log('📜 Starting message history load for room:', params.token);
         setHistoryError(null);
 
-        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";
+        let backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";
+        if (backendUrl && !backendUrl.startsWith('http://') && !backendUrl.startsWith('https://')) {
+          backendUrl = `https://${backendUrl}`;
+        }
+
         const fullUrl = `${backendUrl}/api/room/${params.token}/messages`;
         console.log('🔗 Backend URL from env:', process.env.NEXT_PUBLIC_BACKEND_URL);
         console.log('🔗 Final URL:', fullUrl);
@@ -169,7 +238,8 @@ export default function RoomPage() {
             }
             
             console.log(`📜 Successfully processed ${decryptedMessages.length} historical messages`);
-            setMessages(decryptedMessages);
+
+            setTimeout(() => scrollToBottom(true), 100);
             
             setDebugInfo(prev => ({
               ...prev,
@@ -190,7 +260,7 @@ export default function RoomPage() {
           const errorText = await response.text();
           const errorMsg = `HTTP ${response.status}: ${errorText}`;
           console.error('📜 Failed to load message history:', errorMsg);
-          setHistoryError(errorMsg);
+          setHistoryError(createUserFriendlyError(errorMsg, 'history'));
           setMessages([]);
           
           setDebugInfo(prev => ({
@@ -203,7 +273,7 @@ export default function RoomPage() {
       } catch (error) {
         const errorMsg = error.name === 'AbortError' ? 'Request timeout' : error.message;
         console.error('📜 Error loading message history:', error);
-        setHistoryError(errorMsg);
+        setHistoryError(createUserFriendlyError(errorMsg, 'history'));
         setMessages([]);
         
         setDebugInfo(prev => ({
@@ -225,7 +295,7 @@ export default function RoomPage() {
     };
 
     loadMessageHistory();
-  }, [cryptoInitialized, encryptionEnabled, roomKey, params.token, agentId, messagesLoaded]);
+  }, [cryptoInitialized, encryptionEnabled, roomKey, params.token, agentId, messagesLoaded, scrollToBottom]);
 
   const handleNewMessage = useCallback(async (messageData) => {
     console.log('🔄 Processing new message:', messageData);
@@ -263,12 +333,15 @@ export default function RoomPage() {
         console.log('📝 Previous messages count:', prev.length);
         const newMessages = [...prev, message];
         console.log('📝 New messages count:', newMessages.length);
+
+        setTimeout(() => scrollToBottom(), 50);
+        
         return newMessages;
       });
     } catch (error) {
       console.error("Failed to process message:", error);
     }
-  }, [encryptionEnabled, roomKey, agentId]);
+  }, [encryptionEnabled, roomKey, agentId, scrollToBottom]);
 
   useEffect(() => {
     if (!cryptoInitialized || !agentId) {
@@ -279,7 +352,10 @@ export default function RoomPage() {
     console.log('🚀 Initializing socket connection...');
     setConnectionError(null);
 
-    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";
+    let backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";
+    if (backendUrl && !backendUrl.startsWith('http://') && !backendUrl.startsWith('https://')) {
+      backendUrl = `https://${backendUrl}`;
+    }
     console.log('🔗 Connecting to backend:', backendUrl);
 
     const socketInstance = io(backendUrl, {
@@ -305,13 +381,19 @@ export default function RoomPage() {
 
     socketInstance.on("connect_error", (error) => {
       console.error('❌ Socket connection error:', error);
-      setConnectionError(error.message);
+      setConnectionError(createUserFriendlyError(error.message, 'connection'));
       setIsConnected(false);
     });
 
     socketInstance.on("disconnect", (reason) => {
       console.log('🔌 Socket disconnected:', reason);
       setIsConnected(false);
+      
+      if (reason === 'transport close' || reason === 'transport error') {
+        setConnectionError("Connection lost. Trying to reconnect...");
+      } else if (reason === 'io server disconnect') {
+        setConnectionError("Server disconnected the connection. Please refresh the page.");
+      }
     });
 
     socketInstance.on("room-joined", (data) => {
@@ -338,6 +420,7 @@ export default function RoomPage() {
 
     socketInstance.on("error", (error) => {
       console.error('❌ Socket error:', error);
+      setConnectionError("Connection error occurred. Please refresh the page.");
     });
 
     setSocket(socketInstance);
@@ -349,8 +432,16 @@ export default function RoomPage() {
   }, [cryptoInitialized, agentId, params.token, handleNewMessage]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    scrollToBottom();
+  }, [messages, scrollToBottom]);
+
+  useEffect(() => {
+    return () => {
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const sendMessage = async (content, ttl = 86400) => {
     if (!socket || !content.trim()) {
@@ -385,6 +476,8 @@ export default function RoomPage() {
       
       console.log('📤 Sending message:', messageData);
       socket.emit("send-message", messageData);
+
+      setTimeout(() => scrollToBottom(true), 100);
     } catch (error) {
       console.error("Failed to send message:", error);
     }
@@ -411,25 +504,42 @@ export default function RoomPage() {
 
       <div className="fixed top-16 left-0 right-0 z-10 px-2 sm:px-4">
         {connectionError && (
-          <div className="bg-red-500/20 border border-red-500 text-red-200 p-2 sm:p-3 mb-2 rounded-lg backdrop-blur-sm">
-            <div className="font-medium text-sm">Connection Error:</div>
-            <div className="text-xs sm:text-sm">{connectionError}</div>
-            <div className="text-xs mt-1">Make sure the backend is running</div>
+          <div className="bg-red-500/20 border border-red-500 text-red-200 p-3 mb-2 rounded-lg backdrop-blur-sm">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="w-2 h-2 bg-red-400 rounded-full animate-pulse"></div>
+              <div className="font-medium text-sm">Connection Issue</div>
+            </div>
+            <div className="text-sm">{connectionError}</div>
+            <button 
+              onClick={() => window.location.reload()} 
+              className="text-xs text-red-300 hover:text-red-100 underline mt-1 transition-colors"
+            >
+              Click here to refresh the page
+            </button>
           </div>
         )}
 
         {historyError && (
-          <div className="bg-yellow-500/20 border border-yellow-500 text-yellow-200 p-2 sm:p-3 mb-2 rounded-lg backdrop-blur-sm">
-            <div className="font-medium text-sm">History Loading Error:</div>
-            <div className="text-xs sm:text-sm">{historyError}</div>
-            <div className="text-xs mt-1">Previous messages could not be loaded</div>
+          <div className="bg-blue-500/20 border border-blue-500 text-blue-200 p-3 mb-2 rounded-lg backdrop-blur-sm">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
+              <div className="font-medium text-sm">Message History</div>
+            </div>
+            <div className="text-sm">{historyError}</div>
+            <div className="text-xs text-blue-300 mt-1">
+              Don&apos;t worry - you can still send and receive new messages normally!
+            </div>
           </div>
         )}
       </div>
 
       <div className="flex-1 flex flex-col pt-16 pb-safe">
         <div className="flex-1 overflow-hidden relative">
-          <div className="absolute inset-0 pt-2 pb-2">
+          <div 
+            ref={messagesContainerRef}
+            className="absolute inset-0 pt-2 pb-2"
+            onScroll={handleScroll}
+          >
             <MessageList 
               messages={messages}
               agentId={agentId}
@@ -445,7 +555,8 @@ export default function RoomPage() {
             encryptionEnabled={encryptionEnabled}
           />
         </div>
-                {/* {(process.env.NODE_ENV === 'development' || window.location.search.includes('debug=true')) && (
+
+        {/* {(process.env.NODE_ENV === 'development' || window.location.search.includes('debug=true')) && (
           <div className="fixed bottom-4 right-4 bg-black/90 text-white p-3 rounded text-xs max-w-sm max-h-96 overflow-y-auto">
             <div className="font-bold mb-2">Debug Info</div>
             <div>Messages: {messages.length}</div>
@@ -478,6 +589,27 @@ export default function RoomPage() {
             </div>
           </div>
         )} */}
+
+        {isUserScrolling && (
+          <button
+            onClick={() => scrollToBottom(true)}
+            className="fixed bottom-24 right-4 bg-purple-500 hover:bg-purple-600 text-white rounded-full p-2 shadow-lg transition-all duration-200 z-20 animate-in fade-in zoom-in"
+          >
+            <svg 
+              className="w-5 h-5" 
+              fill="none" 
+              stroke="currentColor" 
+              viewBox="0 0 24 24"
+            >
+              <path 
+                strokeLinecap="round" 
+                strokeLinejoin="round" 
+                strokeWidth={2} 
+                d="M19 14l-7 7m0 0l-7-7m7 7V3" 
+              />
+            </svg>
+          </button>
+        )}
       </div>
     </div>
   );
