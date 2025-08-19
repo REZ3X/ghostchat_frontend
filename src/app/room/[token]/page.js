@@ -28,6 +28,7 @@ export default function RoomPage() {
   const [connectionError, setConnectionError] = useState(null);
   const [messagesLoaded, setMessagesLoaded] = useState(false);
   const [historyError, setHistoryError] = useState(null);
+  const [debugInfo, setDebugInfo] = useState({});
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
@@ -38,7 +39,10 @@ export default function RoomPage() {
 
   useEffect(() => {
     const initializeCrypto = async () => {
+      console.log('🔐 Starting crypto initialization for token:', params.token);
+      
       if (isEncryptionAvailable()) {
+        console.log('✅ Web Crypto API is available');
         const key = await generateRoomKeyFromToken(params.token);
         if (key) {
           setRoomKey(key);
@@ -51,6 +55,7 @@ export default function RoomPage() {
         console.warn('⚠️ Web Crypto API not available, proceeding without encryption');
       }
       setCryptoInitialized(true);
+      console.log('🔐 Crypto initialization completed');
     };
 
     if (params.token) {
@@ -59,29 +64,77 @@ export default function RoomPage() {
   }, [params.token]);
 
   useEffect(() => {
-    if (!cryptoInitialized || messagesLoaded) return;
+    console.log('📜 History loading effect triggered:', {
+      cryptoInitialized,
+      messagesLoaded,
+      paramsToken: params.token,
+      agentId
+    });
+
+    if (!cryptoInitialized) {
+      console.log('📜 Waiting for crypto to initialize...');
+      return;
+    }
+
+    if (messagesLoaded) {
+      console.log('📜 Messages already loaded, skipping...');
+      return;
+    }
 
     const loadMessageHistory = async () => {
       try {
-        console.log('📜 Loading message history for room:', params.token);
+        console.log('📜 Starting message history load for room:', params.token);
         setHistoryError(null);
-        
+
         const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";
-        console.log('🔗 Fetching from:', `${backendUrl}/api/room/${params.token}/messages`);
+        const fullUrl = `${backendUrl}/api/room/${params.token}/messages`;
+        console.log('🔗 Backend URL from env:', process.env.NEXT_PUBLIC_BACKEND_URL);
+        console.log('🔗 Final URL:', fullUrl);
         
-        const response = await fetch(`${backendUrl}/api/room/${params.token}/messages`, {
+        setDebugInfo(prev => ({
+          ...prev,
+          backendUrl,
+          fullUrl,
+          fetchStartTime: new Date().toISOString()
+        }));
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); 
+
+        const response = await fetch(fullUrl, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
+            'Accept': 'application/json',
           },
-          cache: 'no-cache'
+          cache: 'no-cache',
+          signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+        
+        console.log('📜 History response received:', {
+          status: response.status,
+          statusText: response.statusText,
+          headers: Object.fromEntries(response.headers.entries())
         });
         
-        console.log('📜 History response status:', response.status);
+        setDebugInfo(prev => ({
+          ...prev,
+          responseStatus: response.status,
+          responseStatusText: response.statusText,
+          fetchEndTime: new Date().toISOString()
+        }));
         
         if (response.ok) {
           const data = await response.json();
-          console.log('📜 Raw history data:', data);
+          console.log('📜 Raw history data received:', data);
+          
+          setDebugInfo(prev => ({
+            ...prev,
+            rawDataReceived: data,
+            messagesCount: data.messages?.length || 0
+          }));
           
           if (data.messages && Array.isArray(data.messages)) {
             const decryptedMessages = [];
@@ -115,24 +168,59 @@ export default function RoomPage() {
               }
             }
             
-            console.log(`📜 Processed ${decryptedMessages.length} historical messages`);
+            console.log(`📜 Successfully processed ${decryptedMessages.length} historical messages`);
             setMessages(decryptedMessages);
+            
+            setDebugInfo(prev => ({
+              ...prev,
+              processedMessagesCount: decryptedMessages.length,
+              success: true
+            }));
           } else {
-            console.log('📜 No messages in history response');
+            console.log('📜 No messages in history response or invalid format');
             setMessages([]);
+            
+            setDebugInfo(prev => ({
+              ...prev,
+              noMessages: true,
+              success: true
+            }));
           }
         } else {
           const errorText = await response.text();
-          console.warn('📜 Failed to load message history:', response.status, errorText);
-          setHistoryError(`HTTP ${response.status}: ${errorText}`);
+          const errorMsg = `HTTP ${response.status}: ${errorText}`;
+          console.error('📜 Failed to load message history:', errorMsg);
+          setHistoryError(errorMsg);
           setMessages([]);
+          
+          setDebugInfo(prev => ({
+            ...prev,
+            error: errorMsg,
+            errorText,
+            success: false
+          }));
         }
       } catch (error) {
+        const errorMsg = error.name === 'AbortError' ? 'Request timeout' : error.message;
         console.error('📜 Error loading message history:', error);
-        setHistoryError(error.message);
+        setHistoryError(errorMsg);
         setMessages([]);
+        
+        setDebugInfo(prev => ({
+          ...prev,
+          fetchError: errorMsg,
+          errorStack: error.stack,
+          success: false
+        }));
       } finally {
         setMessagesLoaded(true);
+        console.log('📜 Message history loading completed');
+        
+        setDebugInfo(prev => ({
+          ...prev,
+          completed: true,
+          completedTime: new Date().toISOString()
+        }));
       }
     };
 
@@ -354,8 +442,10 @@ export default function RoomPage() {
           />
         </div>
 
-        {process.env.NODE_ENV === 'development' && (
-          <div className="fixed bottom-4 right-4 bg-black/80 text-white p-2 rounded text-xs max-w-xs">
+        {/* Enhanced debug panel for production troubleshooting */}
+        {(process.env.NODE_ENV === 'development' || window.location.search.includes('debug=true')) && (
+          <div className="fixed bottom-4 right-4 bg-black/90 text-white p-3 rounded text-xs max-w-sm max-h-96 overflow-y-auto">
+            <div className="font-bold mb-2">Debug Info</div>
             <div>Messages: {messages.length}</div>
             <div>Connected: {isConnected ? '✅' : '❌'}</div>
             <div>Encryption: {encryptionEnabled ? '✅' : '❌'}</div>
@@ -365,7 +455,25 @@ export default function RoomPage() {
             <div>Participants: {participants.length}</div>
             <div>Crypto Ready: {cryptoInitialized ? '✅' : '❌'}</div>
             <div>History Loaded: {messagesLoaded ? '✅' : '❌'}</div>
-            {historyError && <div className="text-red-400">History Error: {historyError}</div>}
+            
+            {historyError && (
+              <div className="text-red-400 mt-2">
+                <div className="font-semibold">History Error:</div>
+                <div className="break-words">{historyError}</div>
+              </div>
+            )}
+            
+            <div className="mt-2 border-t border-gray-600 pt-2">
+              <div className="font-semibold">History Debug:</div>
+              <div>Backend URL: {debugInfo.backendUrl}</div>
+              <div>Full URL: {debugInfo.fullUrl}</div>
+              <div>Status: {debugInfo.responseStatus}</div>
+              <div>Success: {debugInfo.success ? '✅' : '❌'}</div>
+              <div>Messages Count: {debugInfo.messagesCount}</div>
+              {debugInfo.error && (
+                <div className="text-red-400">Error: {debugInfo.error}</div>
+              )}
+            </div>
           </div>
         )}
       </div>
