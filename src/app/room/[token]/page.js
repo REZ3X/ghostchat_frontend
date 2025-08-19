@@ -442,8 +442,7 @@ export default function RoomPage() {
           />
         </div>
 
-        {/* Enhanced debug panel for production troubleshooting */}
-        {(process.env.NODE_ENV === 'development' || window.location.search.includes('debug=true')) && (
+        {/* {(process.env.NODE_ENV === 'development' || window.location.search.includes('debug=true')) && (
           <div className="fixed bottom-4 right-4 bg-black/90 text-white p-3 rounded text-xs max-w-sm max-h-96 overflow-y-auto">
             <div className="font-bold mb-2">Debug Info</div>
             <div>Messages: {messages.length}</div>
@@ -475,7 +474,7 @@ export default function RoomPage() {
               )}
             </div>
           </div>
-        )}
+        )} */}
       </div>
     </div>
   );
