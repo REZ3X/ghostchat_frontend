@@ -29,37 +29,37 @@ export default function RoomHeader({
   };
 
   return (
-    <div className="bg-white/5 backdrop-blur-md border-b border-white/10 shadow-xl p-3 sm:p-4">
-      <div className="flex items-center justify-between gap-2 sm:gap-4">
-                <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-            <div className={`w-2 h-2 sm:w-3 sm:h-3 rounded-full transition-colors duration-200 ${
+    <div className="bg-white/5 backdrop-blur-md border-b border-white/10 shadow-xl p-2 sm:p-3 md:p-4">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className={`w-2 h-2 sm:w-3 sm:h-3 rounded-full transition-colors duration-200 flex-shrink-0 ${
               isConnected ? 'bg-green-400' : 'bg-red-400'
             }`} />
-            <span className="text-white font-medium text-sm sm:text-base truncate">
+            <span className="text-white font-medium text-xs sm:text-sm md:text-base truncate font-mono">
               {roomToken}
             </span>
           </div>
-          
-                    <div className="hidden sm:flex items-center gap-2">
+
+          <div className="hidden sm:flex items-center gap-1 md:gap-2">
             <div className={`w-2 h-2 sm:w-3 sm:h-3 rounded-full transition-colors duration-200 ${
               encryptionEnabled ? 'bg-green-400' : 'bg-yellow-400'
             }`} />
             {encryptionEnabled ? (
-              <HiShieldCheck className="w-4 h-4 text-green-400" />
+              <HiShieldCheck className="w-3 h-3 md:w-4 md:h-4 text-green-400" />
             ) : (
-              <HiExclamationTriangle className="w-4 h-4 text-yellow-400" />
+              <HiExclamationTriangle className="w-3 h-3 md:w-4 md:h-4 text-yellow-400" />
             )}
             <span className="text-xs text-gray-300 hidden lg:block">
               {encryptionEnabled ? 'Encrypted' : 'Plain text'}
             </span>
           </div>
-          
-                    <button
+
+          <button
             onClick={() => setShowParticipants(!showParticipants)}
-            className="flex items-center gap-1 sm:gap-2 text-gray-300 hover:text-white transition-colors"
+            className="flex items-center gap-1 text-gray-300 hover:text-white transition-colors"
           >
-            <HiUsers className="w-4 h-4" />
+            <HiUsers className="w-3 h-3 sm:w-4 sm:h-4" />
             <span className="text-xs sm:text-sm">{participants.length}</span>
             {showParticipants ? (
               <HiChevronUp className="w-3 h-3" />
@@ -69,10 +69,10 @@ export default function RoomHeader({
           </button>
         </div>
 
-                <div className="flex items-center gap-1 sm:gap-2">
+        <div className="flex items-center gap-1">
           <button
             onClick={copyRoomLink}
-            className="bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 text-white font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 flex items-center gap-1 sm:gap-2 text-xs sm:text-sm"
+            className="bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 text-white font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 flex items-center gap-1 text-xs sm:text-sm"
           >
             <HiClipboard className="w-3 h-3 sm:w-4 sm:h-4" />
             <span className="hidden sm:inline">
@@ -82,7 +82,7 @@ export default function RoomHeader({
           
           <button
             onClick={onLeaveRoom}
-            className="bg-red-500 hover:bg-red-600 text-white font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 flex items-center gap-1 sm:gap-2 text-xs sm:text-sm"
+            className="bg-red-500 hover:bg-red-600 text-white font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 flex items-center gap-1 text-xs sm:text-sm"
           >
             <HiArrowRightOnRectangle className="w-3 h-3 sm:w-4 sm:h-4" />
             <span className="hidden sm:inline">Leave</span>
@@ -90,7 +90,7 @@ export default function RoomHeader({
         </div>
       </div>
 
-            <div className="sm:hidden mt-2 flex items-center gap-2">
+      <div className="sm:hidden mt-2 flex items-center gap-2">
         {encryptionEnabled ? (
           <HiShieldCheck className="w-4 h-4 text-green-400" />
         ) : (
@@ -101,12 +101,12 @@ export default function RoomHeader({
         </span>
       </div>
 
-            {showParticipants && (
-        <div className="mt-3 sm:mt-4 bg-white/5 backdrop-blur-md border border-white/10 shadow-xl rounded-lg p-3 animate-in fade-in duration-300">
+      {showParticipants && (
+        <div className="mt-3 bg-white/5 backdrop-blur-md border border-white/10 shadow-xl rounded-lg p-3 animate-in fade-in duration-300">
           <div className="text-sm text-gray-300 mb-2">
             Online Participants ({participants.length}):
           </div>
-          <div className="space-y-1 max-h-32 overflow-y-auto">
+          <div className="space-y-1 max-h-32 overflow-y-auto custom-scrollbar-thin">
             {participants.map((participant, index) => (
               <div 
                 key={index} 

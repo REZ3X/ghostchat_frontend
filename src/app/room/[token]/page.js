@@ -398,8 +398,8 @@ export default function RoomPage() {
   };
 
   return (
-    <div className="h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-violet-900 flex flex-col overflow-hidden">
-      <div className="flex-shrink-0">
+    <div className="fixed inset-0 bg-gradient-to-br from-gray-900 via-purple-900 to-violet-900 flex flex-col">
+      <div className="fixed top-0 left-0 right-0 z-10 bg-gradient-to-br from-gray-900/95 via-purple-900/95 to-violet-900/95 backdrop-blur-sm">
         <RoomHeader 
           roomToken={params.token}
           participants={participants}
@@ -408,41 +408,44 @@ export default function RoomPage() {
           onLeaveRoom={leaveRoom}
         />
       </div>
-      
-      {connectionError && (
-        <div className="flex-shrink-0 bg-red-500/20 border border-red-500 text-red-200 p-3 m-4 rounded-lg">
-          <div className="font-medium">Connection Error:</div>
-          <div className="text-sm">{connectionError}</div>
-          <div className="text-xs mt-1">Make sure the backend is running on port 3001</div>
-        </div>
-      )}
 
-      {historyError && (
-        <div className="flex-shrink-0 bg-yellow-500/20 border border-yellow-500 text-yellow-200 p-3 m-4 rounded-lg">
-          <div className="font-medium">History Loading Error:</div>
-          <div className="text-sm">{historyError}</div>
-          <div className="text-xs mt-1">Previous messages could not be loaded</div>
-        </div>
-      )}
+      <div className="fixed top-16 left-0 right-0 z-10 px-2 sm:px-4">
+        {connectionError && (
+          <div className="bg-red-500/20 border border-red-500 text-red-200 p-2 sm:p-3 mb-2 rounded-lg backdrop-blur-sm">
+            <div className="font-medium text-sm">Connection Error:</div>
+            <div className="text-xs sm:text-sm">{connectionError}</div>
+            <div className="text-xs mt-1">Make sure the backend is running</div>
+          </div>
+        )}
 
-      <div className="flex-1 min-h-0 flex flex-col">
-        <div className="flex-1 overflow-hidden">
-          <MessageList 
-            messages={messages}
-            agentId={agentId}
-          />
-          <div ref={messagesEndRef} />
+        {historyError && (
+          <div className="bg-yellow-500/20 border border-yellow-500 text-yellow-200 p-2 sm:p-3 mb-2 rounded-lg backdrop-blur-sm">
+            <div className="font-medium text-sm">History Loading Error:</div>
+            <div className="text-xs sm:text-sm">{historyError}</div>
+            <div className="text-xs mt-1">Previous messages could not be loaded</div>
+          </div>
+        )}
+      </div>
+
+      <div className="flex-1 flex flex-col pt-16 pb-safe">
+        <div className="flex-1 overflow-hidden relative">
+          <div className="absolute inset-0 pt-2 pb-2">
+            <MessageList 
+              messages={messages}
+              agentId={agentId}
+            />
+            <div ref={messagesEndRef} />
+          </div>
         </div>
         
-        <div className="flex-shrink-0">
+        <div className="flex-shrink-0 relative">
           <MessageInput 
             onSendMessage={sendMessage}
             disabled={!isConnected}
             encryptionEnabled={encryptionEnabled}
           />
         </div>
-
-        {/* {(process.env.NODE_ENV === 'development' || window.location.search.includes('debug=true')) && (
+                {/* {(process.env.NODE_ENV === 'development' || window.location.search.includes('debug=true')) && (
           <div className="fixed bottom-4 right-4 bg-black/90 text-white p-3 rounded text-xs max-w-sm max-h-96 overflow-y-auto">
             <div className="font-bold mb-2">Debug Info</div>
             <div>Messages: {messages.length}</div>

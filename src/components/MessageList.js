@@ -30,22 +30,22 @@ export default function MessageList({ messages, agentId }) {
   }, [messages]);
 
   return (
-    <div className="h-full overflow-y-auto custom-scrollbar p-3 sm:p-4 space-y-3 sm:space-y-4">
+    <div className="h-full overflow-y-auto custom-scrollbar px-2 sm:px-4 py-2 sm:py-4 space-y-2 sm:space-y-4">
       {messages.length === 0 ? (
         <div className="flex flex-col items-center justify-center text-center text-gray-400 h-full px-4">
-          <div className="bg-white/5 backdrop-blur-md border border-white/10 shadow-xl rounded-full p-6 sm:p-8 mb-4 sm:mb-6">
-            <HiChatBubbleLeftRight className="w-8 h-8 sm:w-12 sm:h-12 text-gray-500" />
+          <div className="bg-white/5 backdrop-blur-md border border-white/10 shadow-xl rounded-full p-4 sm:p-6 mb-3 sm:mb-4">
+            <HiChatBubbleLeftRight className="w-6 h-6 sm:w-8 sm:h-8 text-gray-500" />
           </div>
-          <h3 className="text-lg sm:text-xl font-medium text-white mb-2">
+          <h3 className="text-base sm:text-lg font-medium text-white mb-2">
             No messages yet
           </h3>
-          <p className="text-sm sm:text-base text-gray-400 mb-2">
+          <p className="text-sm text-gray-400 mb-2">
             Start the conversation!
           </p>
-          <p className="text-xs sm:text-sm text-gray-500 max-w-sm">
+          <p className="text-xs text-gray-500 max-w-sm leading-relaxed">
             All messages are encrypted and will auto-delete based on your chosen timer.
           </p>
-          <div className="mt-4 sm:mt-6 text-xs text-gray-600 bg-white/5 backdrop-blur-md border border-white/10 shadow-xl rounded-lg p-2 sm:p-3">
+          <div className="mt-3 sm:mt-4 text-xs text-gray-600 bg-white/5 backdrop-blur-md border border-white/10 shadow-xl rounded-lg p-2 sm:p-3">
             💡 Messages persist until they expire, even after page refresh
           </div>
         </div>
@@ -56,7 +56,7 @@ export default function MessageList({ messages, agentId }) {
               key={message.id}
               className={`flex ${message.isOwn ? 'justify-end' : 'justify-start'} animate-in fade-in duration-300`}
             >
-              <div className={`max-w-[85%] sm:max-w-sm lg:max-w-md px-3 py-2 sm:px-4 sm:py-3 rounded-2xl break-words shadow-lg transition-all duration-200 ${
+              <div className={`max-w-[90%] sm:max-w-[75%] md:max-w-sm lg:max-w-md px-3 py-2 sm:px-4 sm:py-3 rounded-2xl break-words shadow-lg transition-all duration-200 ${
                 message.isOwn 
                   ? 'bg-gradient-to-br from-purple-500 to-purple-600 text-white ml-auto' 
                   : 'bg-white/10 backdrop-blur-sm text-gray-100 border border-white/20'
@@ -85,7 +85,7 @@ export default function MessageList({ messages, agentId }) {
               </div>
             </div>
           ))}
-                    <div className="h-4"></div>
+          <div className="h-4 sm:h-6"></div>
         </>
       )}
     </div>
