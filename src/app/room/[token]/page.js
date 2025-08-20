@@ -99,20 +99,20 @@ export default function RoomPage() {
   useEffect(() => {
     const id = generateAgentId();
     setAgentId(id);
-    console.log('👤 Generated agent ID:', id);
+    // console.log('👤 Generated agent ID:', id);
   }, []);
 
   useEffect(() => {
     const initializeCrypto = async () => {
-      console.log('🔐 Starting crypto initialization for token:', params.token);
+      // console.log('🔐 Starting crypto initialization for token:', params.token);
       
       if (isEncryptionAvailable()) {
-        console.log('✅ Web Crypto API is available');
+        // console.log('✅ Web Crypto API is available');
         const key = await generateRoomKeyFromToken(params.token);
         if (key) {
           setRoomKey(key);
           setEncryptionEnabled(true);
-          console.log('✅ Encryption enabled with shared room key');
+          // console.log('✅ Encryption enabled with shared room key');
         } else {
           console.warn('⚠️ Failed to generate encryption key, proceeding without encryption');
         }
@@ -120,7 +120,7 @@ export default function RoomPage() {
         console.warn('⚠️ Web Crypto API not available, proceeding without encryption');
       }
       setCryptoInitialized(true);
-      console.log('🔐 Crypto initialization completed');
+      // console.log('🔐 Crypto initialization completed');
     };
 
     if (params.token) {
@@ -129,26 +129,26 @@ export default function RoomPage() {
   }, [params.token]);
 
   useEffect(() => {
-    console.log('📜 History loading effect triggered:', {
-      cryptoInitialized,
-      messagesLoaded,
-      paramsToken: params.token,
-      agentId
-    });
+    // console.log('📜 History loading effect triggered:', {
+    //   cryptoInitialized,
+    //   messagesLoaded,
+    //   paramsToken: params.token,
+    //   agentId
+    // });
 
     if (!cryptoInitialized) {
-      console.log('📜 Waiting for crypto to initialize...');
+      // console.log('📜 Waiting for crypto to initialize...');
       return;
     }
 
     if (messagesLoaded) {
-      console.log('📜 Messages already loaded, skipping...');
+      // console.log('📜 Messages already loaded, skipping...');
       return;
     }
 
     const loadMessageHistory = async () => {
       try {
-        console.log('📜 Starting message history load for room:', params.token);
+        // console.log('📜 Starting message history load for room:', params.token);
         setHistoryError(null);
 
         let backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";
@@ -157,8 +157,8 @@ export default function RoomPage() {
         }
 
         const fullUrl = `${backendUrl}/api/room/${params.token}/messages`;
-        console.log('🔗 Backend URL from env:', process.env.NEXT_PUBLIC_BACKEND_URL);
-        console.log('🔗 Final URL:', fullUrl);
+        // console.log('🔗 Backend URL from env:', process.env.NEXT_PUBLIC_BACKEND_URL);
+        // console.log('🔗 Final URL:', fullUrl);
         
         setDebugInfo(prev => ({
           ...prev,
@@ -182,11 +182,11 @@ export default function RoomPage() {
 
         clearTimeout(timeoutId);
         
-        console.log('📜 History response received:', {
-          status: response.status,
-          statusText: response.statusText,
-          headers: Object.fromEntries(response.headers.entries())
-        });
+        // console.log('📜 History response received:', {
+        //   status: response.status,
+        //   statusText: response.statusText,
+        //   headers: Object.fromEntries(response.headers.entries())
+        // });
         
         setDebugInfo(prev => ({
           ...prev,
@@ -216,7 +216,7 @@ export default function RoomPage() {
         if (caption && encryptionEnabled && roomKey) {
           try {
             caption = await decryptMessage(caption, roomKey);
-            console.log('✅ Historical image caption decrypted');
+            // console.log('✅ Historical image caption decrypted');
           } catch (decryptError) {
             console.warn('⚠️ Failed to decrypt historical image caption:', decryptError);
           }
@@ -264,7 +264,7 @@ export default function RoomPage() {
     }
   }
   
-  console.log(`📜 Successfully processed ${decryptedMessages.length} historical messages`);
+  // console.log(`📜 Successfully processed ${decryptedMessages.length} historical messages`);
   setMessages(decryptedMessages);
   setTimeout(() => scrollToBottom(true), 100);
             
@@ -274,7 +274,7 @@ export default function RoomPage() {
               success: true
             }));
           } else {
-            console.log('📜 No messages in history response or invalid format');
+            // console.log('📜 No messages in history response or invalid format');
             setMessages([]);
             
             setDebugInfo(prev => ({
@@ -311,7 +311,7 @@ export default function RoomPage() {
         }));
       } finally {
         setMessagesLoaded(true);
-        console.log('📜 Message history loading completed');
+        // console.log('📜 Message history loading completed');
         
         setDebugInfo(prev => ({
           ...prev,
@@ -325,7 +325,7 @@ export default function RoomPage() {
   }, [cryptoInitialized, encryptionEnabled, roomKey, params.token, agentId, messagesLoaded, scrollToBottom]);
 
   const handleNewMessage = useCallback(async (messageData) => {
-  console.log('🔄 Processing new message:', messageData);
+  // console.log('🔄 Processing new message:', messageData);
   
   try {
     if (messageData.type === 'image') {
@@ -349,7 +349,7 @@ export default function RoomPage() {
         }
       }
       
-      console.log('📸 Adding image message to state:', message);
+      // console.log('📸 Adding image message to state:', message);
       setMessages(prev => {
         const exists = prev.some(msg => msg.id === message.id);
         if (exists) {
@@ -369,7 +369,7 @@ export default function RoomPage() {
     if (encryptionEnabled && roomKey) {
       try {
         messageContent = await decryptMessage(messageData.message, roomKey);
-        console.log('✅ Message decrypted successfully');
+        // console.log('✅ Message decrypted successfully');
       } catch (decryptError) {
         console.warn('⚠️ Failed to decrypt message, showing as-is:', decryptError);
         messageContent = messageData.message;
@@ -385,7 +385,7 @@ export default function RoomPage() {
       isOwn: messageData.sender === agentId
     };
     
-    console.log('📨 Adding text message to state:', message);
+    // console.log('📨 Adding text message to state:', message);
     setMessages(prev => {
       const exists = prev.some(msg => msg.id === message.id);
       if (exists) {
@@ -405,18 +405,18 @@ export default function RoomPage() {
 
   useEffect(() => {
     if (!cryptoInitialized || !agentId) {
-      console.log('⏳ Waiting for crypto initialization and agent ID...');
+      // console.log('⏳ Waiting for crypto initialization and agent ID...');
       return;
     }
 
-    console.log('🚀 Initializing socket connection...');
+    // console.log('🚀 Initializing socket connection...');
     setConnectionError(null);
 
     let backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";
     if (backendUrl && !backendUrl.startsWith('http://') && !backendUrl.startsWith('https://')) {
       backendUrl = `https://${backendUrl}`;
     }
-    console.log('🔗 Connecting to backend:', backendUrl);
+    // console.log('🔗 Connecting to backend:', backendUrl);
 
     const socketInstance = io(backendUrl, {
       transports: ['websocket', 'polling'],
@@ -428,7 +428,7 @@ export default function RoomPage() {
     });
     
     socketInstance.on("connect", () => {
-      console.log('🔗 Socket connected successfully:', socketInstance.id);
+      // console.log('🔗 Socket connected successfully:', socketInstance.id);
       setIsConnected(true);
       setConnectionError(null);
       
@@ -457,24 +457,24 @@ export default function RoomPage() {
     });
 
     socketInstance.on("room-joined", (data) => {
-      console.log('🏠 Room joined successfully:', data);
+      // console.log('🏠 Room joined successfully:', data);
       setParticipants(data.participants || []);
     });
 
     socketInstance.on("participant-joined", (data) => {
-      console.log('👋 Participant joined:', data.agentId);
+      // console.log('👋 Participant joined:', data.agentId);
       setParticipants(prev => [...prev, data.agentId]);
     });
 
     socketInstance.on("participant-left", (data) => {
-      console.log('👋 Participant left:', data.agentId);
+      // console.log('👋 Participant left:', data.agentId);
       setParticipants(prev => prev.filter(p => p !== data.agentId));
     });
 
     socketInstance.on("new-message", handleNewMessage);
 
     socketInstance.on("message-expired", (data) => {
-      console.log('⏰ Message expired:', data.messageId);
+      // console.log('⏰ Message expired:', data.messageId);
       setMessages(prev => prev.filter(msg => msg.id !== data.messageId));
     });
 
@@ -486,7 +486,7 @@ export default function RoomPage() {
     setSocket(socketInstance);
 
     return () => {
-      console.log('🧹 Cleaning up socket connection');
+      // console.log('🧹 Cleaning up socket connection');
       socketInstance.disconnect();
     };
   }, [cryptoInitialized, agentId, params.token, handleNewMessage]);
@@ -520,7 +520,7 @@ export default function RoomPage() {
       if (encryptionEnabled && roomKey) {
         try {
           messageContent = await encryptMessage(content, roomKey);
-          console.log('✅ Message encrypted successfully');
+          // console.log('✅ Message encrypted successfully');
         } catch (encryptError) {
           console.warn('⚠️ Failed to encrypt message, sending as plain text:', encryptError);
           messageContent = content;
@@ -534,7 +534,7 @@ export default function RoomPage() {
         ttl: ttl
       };
       
-      console.log('📤 Sending message:', messageData);
+      // console.log('📤 Sending message:', messageData);
       socket.emit("send-message", messageData);
 
       setTimeout(() => scrollToBottom(true), 100);
@@ -555,13 +555,13 @@ export default function RoomPage() {
   }
 
   try {
-    console.log('📸 Sending image:', imageData.name, 'Size:', Math.round(imageData.size / 1024) + 'KB');
+    // console.log('📸 Sending image:', imageData.name, 'Size:', Math.round(imageData.size / 1024) + 'KB');
     
     let encryptedCaption = caption;
     if (caption && encryptionEnabled && roomKey) {
       try {
         encryptedCaption = await encryptMessage(caption, roomKey);
-        console.log('✅ Image caption encrypted successfully');
+        // console.log('✅ Image caption encrypted successfully');
       } catch (encryptError) {
         console.warn('⚠️ Failed to encrypt caption, sending as plain text:', encryptError);
         encryptedCaption = caption;
