@@ -7,16 +7,20 @@ import {
   HiExclamationTriangle,
   HiFire,
   HiChevronDown,
-  HiShieldExclamation
+  HiShieldExclamation,
+  HiPhoto
 } from "react-icons/hi2";
 import { filterMessage, validateFilterConfig } from "../utils/messageFilter";
+import ImageAttach from "./ImageAttach";
 
-export default function MessageInput({ onSendMessage, disabled, encryptionEnabled }) {
+export default function MessageInput({ onSendMessage, onSendImage, disabled, encryptionEnabled }) {
   const [message, setMessage] = useState("");
   const [ttl, setTtl] = useState(86400);
   const [showTtlOptions, setShowTtlOptions] = useState(false);
   const [filterWarning, setFilterWarning] = useState(null);
   const [filterError, setFilterError] = useState(null);
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [showImageAttach, setShowImageAttach] = useState(false);
   const inputRef = useRef(null);
 
   useEffect(() => {
@@ -37,6 +41,16 @@ export default function MessageInput({ onSendMessage, disabled, encryptionEnable
 
   const handleSubmit = (e) => {
     e.preventDefault();
+
+    if (selectedImage && !message.trim()) {
+      if (!disabled) {
+        onSendImage(selectedImage, ttl);
+        setSelectedImage(null);
+        setShowImageAttach(false);
+      }
+      return;
+    }
+
     if (message.trim() && !disabled) {
       const filterResult = filterMessage(message.trim());
 
@@ -52,7 +66,14 @@ export default function MessageInput({ onSendMessage, disabled, encryptionEnable
         setFilterWarning(filterResult.warning);
       }
 
-      onSendMessage(filterResult.filtered, ttl);
+      if (selectedImage) {
+        onSendImage(selectedImage, ttl, filterResult.filtered);
+        setSelectedImage(null);
+        setShowImageAttach(false);
+      } else {
+        onSendMessage(filterResult.filtered, ttl);
+      }
+      
       setMessage("");
       
       setTimeout(() => setFilterWarning(null), 3000);
@@ -79,6 +100,10 @@ export default function MessageInput({ onSendMessage, disabled, encryptionEnable
     }
   };
 
+  const handleImageSelect = (imageData) => {
+    setSelectedImage(imageData);
+  };
+
   const ttlOptions = [
     { value: 0, label: "Burn after reading", icon: HiFire, color: "text-red-400" },
     { value: 300, label: "5 minutes", icon: HiClock, color: "text-yellow-400" },
@@ -97,6 +122,8 @@ export default function MessageInput({ onSendMessage, disabled, encryptionEnable
 
   const filterConfig = process.env.NODE_ENV === 'development' ? validateFilterConfig() : null;
 
+  const canSend = !disabled && !filterError && (message.trim() || selectedImage);
+
   return (
     <div className="bg-white/5 backdrop-blur-md border-t border-white/10 shadow-xl p-2 sm:p-3 md:p-4 safe-area-inset-bottom">
       {filterError && (
@@ -114,6 +141,15 @@ export default function MessageInput({ onSendMessage, disabled, encryptionEnable
             <HiExclamationTriangle className="w-4 h-4 flex-shrink-0" />
             <span>{filterWarning}</span>
           </div>
+        </div>
+      )}
+
+      {showImageAttach && (
+        <div className="mb-3">
+          <ImageAttach 
+            onImageSelect={handleImageSelect}
+            disabled={disabled}
+          />
         </div>
       )}
 
@@ -178,26 +214,39 @@ export default function MessageInput({ onSendMessage, disabled, encryptionEnable
       </div>
 
       <form onSubmit={handleSubmit} className="flex gap-2">
-        <input
-          ref={inputRef}
-          type="text"
-          value={message}
-          onChange={handleMessageChange}
-          placeholder={placeholderText}
-          disabled={disabled}
-          className={`flex-1 bg-white/5 backdrop-blur-sm border border-white/20 focus:border-purple-500/50 focus:ring-2 focus:ring-purple-500/20 rounded-xl px-3 py-2 sm:px-4 sm:py-3 text-white placeholder-gray-400 focus:outline-none text-sm sm:text-base disabled:opacity-50 min-h-[44px] sm:min-h-[48px] ${
-            filterError ? 'border-red-500/50 focus:border-red-500/50 focus:ring-red-500/20' : ''
-          }`}
-          maxLength={1000}
-          autoComplete="off"
-          autoCorrect="off"
-          autoCapitalize="off"
-          spellCheck="false"
-        />
+        <div className="flex-1 flex gap-2">
+          <input
+            ref={inputRef}
+            type="text"
+            value={message}
+            onChange={handleMessageChange}
+            placeholder={selectedImage ? "Add a caption (optional)" : placeholderText}
+            disabled={disabled}
+            className={`flex-1 bg-white/5 backdrop-blur-sm border border-white/20 focus:border-purple-500/50 focus:ring-2 focus:ring-purple-500/20 rounded-xl px-3 py-2 sm:px-4 sm:py-3 text-white placeholder-gray-400 focus:outline-none text-sm sm:text-base disabled:opacity-50 min-h-[44px] sm:min-h-[48px] ${
+              filterError ? 'border-red-500/50 focus:border-red-500/50 focus:ring-red-500/20' : ''
+            }`}
+            maxLength={1000}
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck="false"
+          />
+          
+          <button
+            type="button"
+            onClick={() => setShowImageAttach(!showImageAttach)}
+            disabled={disabled}
+            className={`bg-white/5 backdrop-blur-xl border border-white/20 focus:border-purple-500/50 focus:ring-2 focus:ring-purple-500/20 rounded-xl px-3 py-2 sm:px-4 sm:py-3 text-white hover:bg-white/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-w-[44px] sm:min-w-[48px] min-h-[44px] sm:min-h-[48px] flex items-center justify-center ${
+              showImageAttach ? 'bg-purple-500/20 border-purple-500/50' : ''
+            }`}
+          >
+            <HiPhoto className="w-4 h-4 sm:w-5 sm:h-5" />
+          </button>
+        </div>
         
         <button
           type="submit"
-          disabled={disabled || !message.trim() || !!filterError}
+          disabled={!canSend}
           className="bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl rounded-xl px-3 py-2 sm:px-4 sm:py-3 flex items-center justify-center min-w-[44px] sm:min-w-[48px] min-h-[44px] sm:min-h-[48px]"
         >
           <HiPaperAirplane className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -205,7 +254,12 @@ export default function MessageInput({ onSendMessage, disabled, encryptionEnable
       </form>
 
       <div className="flex justify-between items-center mt-1 sm:mt-2 text-xs text-gray-500">
-        <span>{message.length}/1000</span>
+        <div className="flex items-center gap-4">
+          <span>{message.length}/1000</span>
+          {selectedImage && (
+            <span className="text-green-400">📷 Image attached</span>
+          )}
+        </div>
         <div className="flex items-center gap-2">
           {message.length > 900 && (
             <span className="text-yellow-400">

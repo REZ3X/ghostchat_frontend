@@ -206,40 +206,67 @@ export default function RoomPage() {
           }));
           
           if (data.messages && Array.isArray(data.messages)) {
-            const decryptedMessages = [];
-            
-            for (const messageData of data.messages) {
-              try {
-                let messageContent = messageData.message;
-                
-                if (encryptionEnabled && roomKey) {
-                  try {
-                    messageContent = await decryptMessage(messageData.message, roomKey);
-                    console.log('✅ Historical message decrypted');
-                  } catch (decryptError) {
-                    console.warn('⚠️ Failed to decrypt historical message:', decryptError);
-                    messageContent = messageData.message;
-                  }
-                }
-                
-                const message = {
-                  id: messageData.id,
-                  content: messageContent,
-                  sender: messageData.sender,
-                  timestamp: messageData.timestamp,
-                  ttl: messageData.ttl,
-                  isOwn: messageData.sender === agentId
-                };
-                
-                decryptedMessages.push(message);
-              } catch (error) {
-                console.warn('Failed to process historical message:', error);
-              }
-            }
-            
-            console.log(`📜 Successfully processed ${decryptedMessages.length} historical messages`);
+  const decryptedMessages = [];
+  
+  for (const messageData of data.messages) {
+    try {
+      if (messageData.type === 'image') {
+        let caption = messageData.caption || "";
 
-            setTimeout(() => scrollToBottom(true), 100);
+        if (caption && encryptionEnabled && roomKey) {
+          try {
+            caption = await decryptMessage(caption, roomKey);
+            console.log('✅ Historical image caption decrypted');
+          } catch (decryptError) {
+            console.warn('⚠️ Failed to decrypt historical image caption:', decryptError);
+          }
+        }
+        
+        const message = {
+          id: messageData.id,
+          type: 'image',
+          imageData: messageData.imageData,
+          caption: caption,
+          sender: messageData.sender,
+          timestamp: messageData.timestamp,
+          ttl: messageData.ttl,
+          isOwn: messageData.sender === agentId
+        };
+        
+        decryptedMessages.push(message);
+        continue;
+      }
+
+      let messageContent = messageData.message;
+      
+      if (encryptionEnabled && roomKey) {
+        try {
+          messageContent = await decryptMessage(messageData.message, roomKey);
+          console.log('✅ Historical message decrypted');
+        } catch (decryptError) {
+          console.warn('⚠️ Failed to decrypt historical message:', decryptError);
+          messageContent = messageData.message;
+        }
+      }
+      
+      const message = {
+        id: messageData.id,
+        content: messageContent,
+        sender: messageData.sender,
+        timestamp: messageData.timestamp,
+        ttl: messageData.ttl,
+        isOwn: messageData.sender === agentId
+      };
+      
+      decryptedMessages.push(message);
+    } catch (error) {
+      console.warn('Failed to process historical message:', error);
+    }
+  }
+  
+  console.log(`📜 Successfully processed ${decryptedMessages.length} historical messages`);
+  setMessages(decryptedMessages);
+  setTimeout(() => scrollToBottom(true), 100);
             
             setDebugInfo(prev => ({
               ...prev,
@@ -298,50 +325,83 @@ export default function RoomPage() {
   }, [cryptoInitialized, encryptionEnabled, roomKey, params.token, agentId, messagesLoaded, scrollToBottom]);
 
   const handleNewMessage = useCallback(async (messageData) => {
-    console.log('🔄 Processing new message:', messageData);
-    
-    try {
-      let messageContent = messageData.message;
-
-      if (encryptionEnabled && roomKey) {
-        try {
-          messageContent = await decryptMessage(messageData.message, roomKey);
-          console.log('✅ Message decrypted successfully');
-        } catch (decryptError) {
-          console.warn('⚠️ Failed to decrypt message, showing as-is:', decryptError);
-          messageContent = messageData.message;
-        }
-      }
-      
+  console.log('🔄 Processing new message:', messageData);
+  
+  try {
+    if (messageData.type === 'image') {
       const message = {
         id: messageData.id,
-        content: messageContent,
+        type: 'image',
+        imageData: messageData.imageData,
+        caption: messageData.caption,
         sender: messageData.sender,
         timestamp: messageData.timestamp,
         ttl: messageData.ttl,
         isOwn: messageData.sender === agentId
       };
+ 
+      if (message.caption && encryptionEnabled && roomKey) {
+        try {
+          message.caption = await decryptMessage(message.caption, roomKey);
+          console.log('✅ Image caption decrypted successfully');
+        } catch (decryptError) {
+          console.warn('⚠️ Failed to decrypt image caption:', decryptError);
+        }
+      }
       
-      console.log('📨 Adding message to state:', message);
+      console.log('📸 Adding image message to state:', message);
       setMessages(prev => {
         const exists = prev.some(msg => msg.id === message.id);
         if (exists) {
-          console.log('📨 Message already exists, skipping');
+          console.log('📸 Image message already exists, skipping');
           return prev;
         }
         
-        console.log('📝 Previous messages count:', prev.length);
         const newMessages = [...prev, message];
-        console.log('📝 New messages count:', newMessages.length);
-
         setTimeout(() => scrollToBottom(), 50);
-        
         return newMessages;
       });
-    } catch (error) {
-      console.error("Failed to process message:", error);
+      return;
     }
-  }, [encryptionEnabled, roomKey, agentId, scrollToBottom]);
+
+    let messageContent = messageData.message;
+
+    if (encryptionEnabled && roomKey) {
+      try {
+        messageContent = await decryptMessage(messageData.message, roomKey);
+        console.log('✅ Message decrypted successfully');
+      } catch (decryptError) {
+        console.warn('⚠️ Failed to decrypt message, showing as-is:', decryptError);
+        messageContent = messageData.message;
+      }
+    }
+    
+    const message = {
+      id: messageData.id,
+      content: messageContent,
+      sender: messageData.sender,
+      timestamp: messageData.timestamp,
+      ttl: messageData.ttl,
+      isOwn: messageData.sender === agentId
+    };
+    
+    console.log('📨 Adding text message to state:', message);
+    setMessages(prev => {
+      const exists = prev.some(msg => msg.id === message.id);
+      if (exists) {
+        console.log('📨 Message already exists, skipping');
+        return prev;
+      }
+      
+      const newMessages = [...prev, message];
+      setTimeout(() => scrollToBottom(), 50);
+      return newMessages;
+    });
+    
+  } catch (error) {
+    console.error("Failed to process message:", error);
+  }
+}, [encryptionEnabled, roomKey, agentId, scrollToBottom]);
 
   useEffect(() => {
     if (!cryptoInitialized || !agentId) {
@@ -483,6 +543,45 @@ export default function RoomPage() {
     }
   };
 
+  const sendImage = async (imageData, ttl = 86400, caption = "") => {
+  if (!socket || !imageData) {
+    console.warn('❌ Cannot send image: no socket or image data');
+    return;
+  }
+
+  if (!isConnected) {
+    console.warn('❌ Cannot send image: socket not connected');
+    return;
+  }
+
+  try {
+    console.log('📸 Sending image:', imageData.name, 'Size:', Math.round(imageData.size / 1024) + 'KB');
+    
+    let encryptedCaption = caption;
+    if (caption && encryptionEnabled && roomKey) {
+      try {
+        encryptedCaption = await encryptMessage(caption, roomKey);
+        console.log('✅ Image caption encrypted successfully');
+      } catch (encryptError) {
+        console.warn('⚠️ Failed to encrypt caption, sending as plain text:', encryptError);
+        encryptedCaption = caption;
+      }
+    }
+    
+    socket.emit("send-image", {
+      roomToken: params.token,
+      imageData: imageData,
+      caption: encryptedCaption,
+      sender: agentId,
+      ttl: ttl
+    });
+
+    setTimeout(() => scrollToBottom(true), 100);
+  } catch (error) {
+    console.error("Failed to send image:", error);
+  }
+};
+
   const leaveRoom = () => {
     if (socket) {
       socket.disconnect();
@@ -549,11 +648,12 @@ export default function RoomPage() {
         </div>
         
         <div className="flex-shrink-0 relative">
-          <MessageInput 
-            onSendMessage={sendMessage}
-            disabled={!isConnected}
-            encryptionEnabled={encryptionEnabled}
-          />
+<MessageInput 
+  onSendMessage={sendMessage}
+  onSendImage={sendImage}
+  disabled={!isConnected}
+  encryptionEnabled={encryptionEnabled}
+/>
         </div>
 
         {/* {(process.env.NODE_ENV === 'development' || window.location.search.includes('debug=true')) && (
